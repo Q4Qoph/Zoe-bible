@@ -1,59 +1,90 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+} from "@expo-google-fonts/dm-sans";
+import { Lora_400Regular, Lora_700Bold } from "@expo-google-fonts/lora";
+import { Syne_700Bold, useFonts } from "@expo-google-fonts/syne";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { SQLiteDatabase } from "expo-sqlite";
+import { useEffect, useState } from "react";
+import { Text, View } from "react-native";
+import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { DatabaseContext } from "../src/db";
+import { openDatabase } from "../src/db/database";
+import { UserDatabaseContext } from "../src/db/UserDatabaseContext";
+import { openUserDatabase } from "../src/db/userDb";
 
-import { useColorScheme } from '@/components/useColorScheme';
+export { ErrorBoundary } from "expo-router";
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+export const unstable_settings = { initialRouteName: "(tabs)" };
 
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  const [db, setDb] = useState<SQLiteDatabase | null>(null);
+  const [userDb, setUserDb] = useState<SQLiteDatabase | null>(null);
+  const [dbError, setDbError] = useState<string | null>(null);
+
+  const [fontsLoaded, fontError] = useFonts({
+    "Syne-Bold": Syne_700Bold,
+    "Lora-Regular": Lora_400Regular,
+    "Lora-Bold": Lora_700Bold,
+    "DMSans-Regular": DMSans_400Regular,
+    "DMSans-Medium": DMSans_500Medium,
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
     ...FontAwesome.font,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+    if (fontError) throw fontError;
+  }, [fontError]);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    Promise.all([openDatabase(), openUserDatabase()])
+      .then(([bibleDb, uDb]) => {
+        setDb(bibleDb);
+        setUserDb(uDb);
+      })
+      .catch((e) => setDbError(e.message));
+  }, []);
 
-  if (!loaded) {
-    return null;
+  useEffect(() => {
+    if (fontsLoaded && db && userDb) SplashScreen.hideAsync();
+  }, [fontsLoaded, db, userDb]);
+
+  if (!fontsLoaded || !db || !userDb) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#0F0F14",
+        }}
+      >
+        <Text style={{ color: "#FF6B35", fontSize: 28, fontWeight: "bold" }}>
+          Zoe
+        </Text>
+        <Text style={{ color: "#6B6B80", marginTop: 8, fontSize: 13 }}>
+          {dbError ? `Error: ${dbError}` : "Loading scripture..."}
+        </Text>
+      </View>
+    );
   }
 
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <DatabaseContext.Provider value={db}>
+        <UserDatabaseContext.Provider value={userDb}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: "modal" }} />
+          </Stack>
+        </UserDatabaseContext.Provider>
+      </DatabaseContext.Provider>
+    </SafeAreaProvider>
   );
 }
