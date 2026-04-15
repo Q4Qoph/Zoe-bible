@@ -1,7 +1,7 @@
 import { Stack } from "expo-router";
 import { useTheme } from "../../src/contexts/ThemeContext";
 
-export default function ReaderLayout() {
+export default function PlanLayout() {
   const { colors } = useTheme();
 
   return (
@@ -10,16 +10,8 @@ export default function ReaderLayout() {
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: "#FF6B35",
         headerTitleStyle: { fontFamily: "Syne-Bold", color: colors.text },
-        headerBackTitle: "",
         contentStyle: { backgroundColor: colors.background },
       }}
-    >
-      <Stack.Screen
-        name="index"
-        options={{
-          headerShown: false,
-        }}
-      />
-    </Stack>
+    />
   );
 }

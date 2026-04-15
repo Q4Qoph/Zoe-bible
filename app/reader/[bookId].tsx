@@ -7,6 +7,8 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { AppColors } from "../../constants/theme";
+import { useTheme } from "../../src/contexts/ThemeContext";
 import { useDatabase } from "../../src/db";
 import { Book, getBooks, getChapterCount } from "../../src/db/queries";
 
@@ -14,6 +16,7 @@ export default function ChaptersScreen() {
   const db = useDatabase();
   const router = useRouter();
   const { bookId } = useLocalSearchParams<{ bookId: string }>();
+  const { colors } = useTheme();
   const [book, setBook] = useState<Book | null>(null);
   const [chapterCount, setChapterCount] = useState(0);
 
@@ -26,6 +29,7 @@ export default function ChaptersScreen() {
   }, [bookId]);
 
   const chapters = Array.from({ length: chapterCount }, (_, i) => i + 1);
+  const styles = makeStyles(colors);
 
   return (
     <View style={styles.container}>
@@ -54,27 +58,29 @@ export default function ChaptersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F0F14" },
-  header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 },
-  title: { fontFamily: "Syne-Bold", fontSize: 28, color: "#F5F5F5" },
-  subtitle: {
-    fontFamily: "DMSans-Regular",
-    fontSize: 13,
-    color: "#6B6B80",
-    marginTop: 4,
-  },
-  grid: { paddingHorizontal: 16, paddingBottom: 32 },
-  chapterBtn: {
-    flex: 1,
-    margin: 6,
-    backgroundColor: "#1A1A24",
-    borderRadius: 12,
-    height: 56,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#2A2A38",
-  },
-  chapterText: { fontFamily: "Syne-Bold", fontSize: 16, color: "#FF6B35" },
-});
+function makeStyles(c: AppColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.background },
+    header: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 24 },
+    title: { fontFamily: "Syne-Bold", fontSize: 28, color: c.text },
+    subtitle: {
+      fontFamily: "DMSans-Regular",
+      fontSize: 13,
+      color: c.muted,
+      marginTop: 4,
+    },
+    grid: { paddingHorizontal: 16, paddingBottom: 32 },
+    chapterBtn: {
+      flex: 1,
+      margin: 6,
+      backgroundColor: c.surface,
+      borderRadius: 12,
+      height: 56,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    chapterText: { fontFamily: "Syne-Bold", fontSize: 16, color: "#FF6B35" },
+  });
+}

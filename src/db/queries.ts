@@ -66,19 +66,21 @@ export async function getVerse(
   );
 }
 
-// Full-text search
+// Full-text search with pagination
 export async function searchVerses(
   db: SQLiteDatabase,
-  query: string
+  query: string,
+  limit = 20,
+  offset = 0
 ): Promise<ChapterVerse[]> {
   return db.getAllAsync<ChapterVerse>(
-    `SELECT v.*, b.name as book_name 
-     FROM BSB_verses v 
+    `SELECT v.*, b.name as book_name
+     FROM BSB_verses v
      JOIN BSB_books b ON v.book_id = b.id
-     WHERE v.text LIKE ? 
+     WHERE v.text LIKE ?
      ORDER BY v.book_id, v.chapter, v.verse
-     LIMIT 100`,
-    [`%${query}%`]
+     LIMIT ? OFFSET ?`,
+    [`%${query}%`, limit, offset]
   );
 }
 

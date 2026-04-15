@@ -1,22 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Tabs, useRouter } from "expo-router";
+import { useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const ORANGE = "#FF6B35";
-const MUTED = "#6B6B80";
-const SURFACE = "#1A1A24";
+import { useTheme } from "../../src/contexts/ThemeContext";
 
 export default function TabLayout() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+
+  useEffect(() => {
+    AsyncStorage.getItem("onboarded").then((val) => {
+      if (val !== "true") router.replace("/onboarding");
+    });
+  }, []);
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: ORANGE,
-        tabBarInactiveTintColor: MUTED,
+        tabBarActiveTintColor: "#FF6B35",
+        tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
-          backgroundColor: SURFACE,
-          borderTopColor: "#2A2A38",
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           height: 60 + insets.bottom,
           paddingBottom: insets.bottom + 4,
@@ -66,11 +73,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="sermon"
+        name="session"
         options={{
-          title: "Sermon",
+          title: "Session",
           tabBarIcon: ({ color }) => (
-            <Ionicons name="mic" size={22} color={color} />
+            <Ionicons name="create" size={22} color={color} />
           ),
         }}
       />
