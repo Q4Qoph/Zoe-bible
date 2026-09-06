@@ -102,11 +102,22 @@ export async function removeBookmark(db: SQLite.SQLiteDatabase, id: number) {
   await db.runAsync('DELETE FROM bookmarks WHERE id = ?', [id]);
 }
 
+export async function removeBookmarkByVerse(db: SQLite.SQLiteDatabase, book_id: number, chapter: number, verse: number) {
+  await db.runAsync('DELETE FROM bookmarks WHERE book_id = ? AND chapter = ? AND verse = ?', [book_id, chapter, verse]);
+}
+
 export async function getBookmarks(db: SQLite.SQLiteDatabase) {
   return db.getAllAsync<{
     id: number; book_id: number; book_name: string;
     chapter: number; verse: number; text: string; created_at: string;
   }>('SELECT * FROM bookmarks ORDER BY created_at DESC');
+}
+
+export async function getBookmarksByChapter(db: SQLite.SQLiteDatabase, book_id: number, chapter: number) {
+  return db.getAllAsync<{ verse: number }>(
+    'SELECT verse FROM bookmarks WHERE book_id = ? AND chapter = ?',
+    [book_id, chapter]
+  );
 }
 
 // ─── Highlights ──────────────────────────────────────────
@@ -147,6 +158,10 @@ export async function removeHighlight(db: SQLite.SQLiteDatabase, id: number) {
   await db.runAsync('DELETE FROM highlights WHERE id = ?', [id]);
 }
 
+export async function removeHighlightByVerse(db: SQLite.SQLiteDatabase, book_id: number, chapter: number, verse: number) {
+  await db.runAsync('DELETE FROM highlights WHERE book_id = ? AND chapter = ? AND verse = ?', [book_id, chapter, verse]);
+}
+
 // ─── Notes ───────────────────────────────────────────────
 export async function addNote(
   db: SQLite.SQLiteDatabase,
@@ -166,6 +181,13 @@ export async function getNotes(db: SQLite.SQLiteDatabase) {
   }>('SELECT * FROM notes ORDER BY created_at DESC');
 }
 
+export async function getNotesByChapter(db: SQLite.SQLiteDatabase, book_id: number, chapter: number) {
+  return db.getAllAsync<{ id: number; verse: number; note: string }>(
+    'SELECT id, verse, note FROM notes WHERE book_id = ? AND chapter = ?',
+    [book_id, chapter]
+  );
+}
+
 export async function removeNote(db: SQLite.SQLiteDatabase, id: number) {
   await db.runAsync('DELETE FROM notes WHERE id = ?', [id]);
 }
@@ -181,9 +203,20 @@ export async function startPlan(
   );
   if (existing) return;
   await db.runAsync(
-    'INSERT INTO reading_plans (plan_id, plan_name) VALUES (?, ?)',
+    'INSERT INTO reading_plans (plan_id, plan_name, started_at) VALUES (?, ?, datetime(\'now\'))',
     [planId, planName]
   );
+}
+
+export async function isPlanEnrolled(
+  db: SQLite.SQLiteDatabase,
+  planId: string
+): Promise<boolean> {
+  const existing = await db.getFirstAsync<{ id: number }>(
+    'SELECT id FROM reading_plans WHERE plan_id = ?',
+    [planId]
+  );
+  return !!existing;
 }
 
 export async function getActivePlans(db: SQLite.SQLiteDatabase) {
@@ -208,6 +241,39 @@ export async function markChapterComplete(
   );
 }
 
+export async function toggleChapterProgress(
+  db: SQLite.SQLiteDatabase,
+  planId: string,
+  day: number,
+  bookId: number,
+  bookName: string,
+  chapter: number
+): Promise<boolean> {
+  const existing = await db.getFirstAsync<{ completed: number }>(
+    'SELECT completed FROM reading_progress WHERE plan_id = ? AND day = ? AND book_id = ? AND chapter = ?',
+    [planId, day, bookId, chapter]
+  );
+  const nextVal = existing && existing.completed === 1 ? 0 : 1;
+  await db.runAsync(
+    `INSERT INTO reading_progress (plan_id, day, book_id, book_name, chapter, completed, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(plan_id, day, book_id, chapter) DO UPDATE SET completed=?, completed_at=datetime('now')`,
+    [planId, day, bookId, bookName, chapter, nextVal, nextVal]
+  );
+  return nextVal === 1;
+}
+
+export async function completeDayInPlan(
+  db: SQLite.SQLiteDatabase,
+  planId: string,
+  day: number,
+  readings: { bookId: number; bookName: string; chapter: number }[]
+) {
+  for (const r of readings) {
+    await markChapterComplete(db, planId, day, r.bookId, r.bookName, r.chapter);
+  }
+}
+
 export async function getProgress(
   db: SQLite.SQLiteDatabase,
   planId: string
@@ -229,12 +295,13 @@ export async function deletePlan(db: SQLite.SQLiteDatabase, planId: string) {
 // ─── Sessions ─────────────────────────────────────────────
 export async function saveSession(
   db: SQLite.SQLiteDatabase,
-  session: { topic: string; speaker: string; sessionType: string; date: string; notes: unknown[] }
+  session: { topic: string; speaker: string; sessionType: string; date: string; notes: string | unknown }
 ) {
+  const notesStr = typeof session.notes === 'string' ? session.notes : JSON.stringify(session.notes);
   await db.runAsync(
     `INSERT INTO sessions (topic, speaker, session_type, date, notes)
      VALUES (?, ?, ?, ?, ?)`,
-    [session.topic, session.speaker, session.sessionType, session.date, JSON.stringify(session.notes)]
+    [session.topic, session.speaker, session.sessionType, session.date, notesStr]
   );
 }
 
@@ -247,6 +314,18 @@ export async function getSavedSessions(db: SQLite.SQLiteDatabase) {
 
 export async function deleteSavedSession(db: SQLite.SQLiteDatabase, id: number) {
   await db.runAsync('DELETE FROM sessions WHERE id = ?', [id]);
+}
+
+export async function updateSavedSession(
+  db: SQLite.SQLiteDatabase,
+  id: number,
+  session: { topic: string; speaker: string; sessionType: string; date: string; notes: string | unknown }
+) {
+  const notesStr = typeof session.notes === 'string' ? session.notes : JSON.stringify(session.notes);
+  await db.runAsync(
+    `UPDATE sessions SET topic = ?, speaker = ?, session_type = ?, date = ?, notes = ? WHERE id = ?`,
+    [session.topic, session.speaker, session.sessionType, session.date, notesStr, id]
+  );
 }
 
 // ─── Custom Plans ──────────────────────────────────────────
@@ -276,4 +355,60 @@ export async function deleteCustomPlan(db: SQLite.SQLiteDatabase, planId: string
   await db.runAsync('DELETE FROM custom_plans WHERE plan_id = ?', [planId]);
   await db.runAsync('DELETE FROM reading_plans WHERE plan_id = ?', [planId]);
   await db.runAsync('DELETE FROM reading_progress WHERE plan_id = ?', [planId]);
+}
+
+// ─── User Content Search (Omnisearch) ───────────────────────
+export async function searchUserNotes(db: SQLite.SQLiteDatabase, query: string) {
+  const searchTerm = `%${query.trim()}%`;
+  return db.getAllAsync<{
+    id: number;
+    book_id: number;
+    book_name: string;
+    chapter: number;
+    verse: number;
+    verse_text: string;
+    note: string;
+    created_at: string;
+  }>(
+    `SELECT * FROM notes 
+     WHERE note LIKE ? OR verse_text LIKE ? OR book_name LIKE ?
+     ORDER BY created_at DESC LIMIT 30`,
+    [searchTerm, searchTerm, searchTerm]
+  );
+}
+
+export async function searchUserSessions(db: SQLite.SQLiteDatabase, query: string) {
+  const searchTerm = `%${query.trim()}%`;
+  return db.getAllAsync<{
+    id: number;
+    topic: string;
+    speaker: string;
+    session_type: string;
+    date: string;
+    notes: string;
+    created_at: string;
+  }>(
+    `SELECT * FROM sessions 
+     WHERE topic LIKE ? OR speaker LIKE ? OR notes LIKE ?
+     ORDER BY created_at DESC LIMIT 30`,
+    [searchTerm, searchTerm, searchTerm]
+  );
+}
+
+export async function searchUserBookmarks(db: SQLite.SQLiteDatabase, query: string) {
+  const searchTerm = `%${query.trim()}%`;
+  return db.getAllAsync<{
+    id: number;
+    book_id: number;
+    book_name: string;
+    chapter: number;
+    verse: number;
+    text: string;
+    created_at: string;
+  }>(
+    `SELECT * FROM bookmarks 
+     WHERE text LIKE ? OR book_name LIKE ?
+     ORDER BY created_at DESC LIMIT 30`,
+    [searchTerm, searchTerm]
+  );
 }

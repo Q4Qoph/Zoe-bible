@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -39,15 +39,26 @@ export default function LibraryScreen() {
   const [plans, setPlans] = useState<any[]>([]);
   const [customPlans, setCustomPlans] = useState<any[]>([]);
 
-  const load = async () => {
-    setBookmarks(await getBookmarks(userDb));
-    setHighlights(await getHighlights(userDb));
-    setNotes(await getNotes(userDb));
-    setPlans(await getActivePlans(userDb));
-    setCustomPlans(await getCustomPlans(userDb));
-  };
+  const load = useCallback(async () => {
+    const [bm, hl, nt, pl, cp] = await Promise.all([
+      getBookmarks(userDb),
+      getHighlights(userDb),
+      getNotes(userDb),
+      getActivePlans(userDb),
+      getCustomPlans(userDb),
+    ]);
+    setBookmarks(bm);
+    setHighlights(hl);
+    setNotes(nt);
+    setPlans(pl);
+    setCustomPlans(cp);
+  }, [userDb]);
 
-  useEffect(() => { load(); }, []);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   const confirmDelete = (label: string, onDelete: () => void) => {
     Alert.alert("Delete", `Remove this ${label}?`, [
@@ -68,7 +79,12 @@ export default function LibraryScreen() {
   const renderBookmark = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/reader/${item.book_id}/${item.chapter}`)}
+      onPress={() =>
+        router.push({
+          pathname: "/reader/[bookId]/[chapter]",
+          params: { bookId: item.book_id.toString(), chapter: item.chapter.toString(), verse: item.verse.toString() },
+        })
+      }
     >
       <View style={styles.cardTop}>
         <Text style={styles.ref}>{item.book_name} {item.chapter}:{item.verse}</Text>
@@ -84,7 +100,12 @@ export default function LibraryScreen() {
   const renderHighlight = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[styles.card, { borderLeftWidth: 4, borderLeftColor: item.color }]}
-      onPress={() => router.push(`/reader/${item.book_id}/${item.chapter}`)}
+      onPress={() =>
+        router.push({
+          pathname: "/reader/[bookId]/[chapter]",
+          params: { bookId: item.book_id.toString(), chapter: item.chapter.toString(), verse: item.verse.toString() },
+        })
+      }
     >
       <View style={styles.cardTop}>
         <Text style={styles.ref}>{item.book_name} {item.chapter}:{item.verse}</Text>
@@ -99,7 +120,12 @@ export default function LibraryScreen() {
   const renderNote = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/reader/${item.book_id}/${item.chapter}`)}
+      onPress={() =>
+        router.push({
+          pathname: "/reader/[bookId]/[chapter]",
+          params: { bookId: item.book_id.toString(), chapter: item.chapter.toString(), verse: item.verse.toString() },
+        })
+      }
     >
       <View style={styles.cardTop}>
         <Text style={styles.ref}>{item.book_name} {item.chapter}:{item.verse}</Text>
@@ -182,7 +208,12 @@ export default function LibraryScreen() {
             <TouchableOpacity
               key={item.id}
               style={styles.card}
-              onPress={() => router.push(`/plan/${item.plan_id}`)}
+              onPress={() =>
+                router.push({
+                  pathname: "/plan/[planId]",
+                  params: { planId: item.plan_id },
+                })
+              }
             >
               <View style={styles.cardTop}>
                 <Text style={styles.ref}>{item.plan_name}</Text>
@@ -200,7 +231,12 @@ export default function LibraryScreen() {
             <TouchableOpacity
               key={item.plan_id}
               style={[styles.card, { borderLeftWidth: 3, borderLeftColor: item.color }]}
-              onPress={() => router.push(`/plan/${item.plan_id}`)}
+              onPress={() =>
+                router.push({
+                  pathname: "/plan/[planId]",
+                  params: { planId: item.plan_id },
+                })
+              }
             >
               <View style={styles.cardTop}>
                 <Text style={styles.planEmoji}>{item.icon}</Text>

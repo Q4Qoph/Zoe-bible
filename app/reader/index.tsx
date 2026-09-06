@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   StatusBar,
@@ -14,6 +15,7 @@ import { AppColors } from "../../constants/theme";
 import { useTheme } from "../../src/contexts/ThemeContext";
 import { useDatabase } from "../../src/db";
 import { Book, getBooks } from "../../src/db/queries";
+import { AVAILABLE_TRANSLATIONS, TranslationId } from "../../src/data/translations";
 
 const OLD_TESTAMENT_COUNT = 39;
 
@@ -24,10 +26,25 @@ export default function BooksScreen() {
   const { colors, isDark } = useTheme();
   const [books, setBooks] = useState<Book[]>([]);
   const [tab, setTab] = useState<"OT" | "NT">("OT");
+  const [activeTranslation, setActiveTranslation] = useState<TranslationId>("BSB");
 
   useEffect(() => {
     getBooks(db).then(setBooks);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem("active_translation").then((t) => {
+        if (t === "KJV" || t === "WEB" || t === "BSB") {
+          setActiveTranslation(t);
+        }
+      });
+    }, [])
+  );
+
+  const activeMeta =
+    AVAILABLE_TRANSLATIONS.find((t) => t.id === activeTranslation) ||
+    AVAILABLE_TRANSLATIONS[0];
 
   const filtered = books.filter((b) =>
     tab === "OT" ? b.id <= OLD_TESTAMENT_COUNT : b.id > OLD_TESTAMENT_COUNT,
@@ -54,8 +71,27 @@ export default function BooksScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Scripture</Text>
-        <Text style={styles.subtitle}>Berean Standard Bible</Text>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <View>
+            <Text style={styles.title}>Scripture</Text>
+            <Text style={styles.subtitle}>{activeMeta.fullName}</Text>
+          </View>
+          <TouchableOpacity
+            style={{
+              backgroundColor: "#FF6B3518",
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: "#FF6B3544",
+            }}
+            onPress={() => router.push("/settings")}
+          >
+            <Text style={{ fontFamily: "Syne-Bold", fontSize: 12, color: "#FF6B35" }}>
+              {activeTranslation} ▾
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* OT / NT Toggle */}

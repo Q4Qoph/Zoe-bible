@@ -10,8 +10,23 @@ export default function PlanLayout() {
         headerStyle: { backgroundColor: colors.surface },
         headerTintColor: "#FF6B35",
         headerTitleStyle: { fontFamily: "Syne-Bold", color: colors.text },
+        headerBackTitle: "",
         contentStyle: { backgroundColor: colors.background },
       }}
-    />
+    >
+      <Stack.Screen
+        name="[planId]"
+        options={{
+          headerShown: true,
+          title: "Plan Details",
+        }}
+      />
+      <Stack.Screen
+        name="create"
+        options={{
+          headerShown: false,
+        }}
+      />
+    </Stack>
   );
 }

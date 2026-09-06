@@ -34,7 +34,8 @@
       "expo-router",
       "expo-sqlite",
       "expo-font",
-      "expo-asset"
+      "expo-asset",
+      "expo-web-browser"
     ],
     "assetBundlePatterns": [
       "assets/**"
